@@ -7,6 +7,46 @@ local D=string.char(100,101,97,116,104,95,104,120,95,117,115,101,114,46,116,121,
 local E=A..B
 local F=A..C
 local G=A..D
+-- Bypass user type: always premium
+function loadUserType()
+    return string.char(112,114,101,109,105,117,109) -- "premium"
+end
+
+-- Bypass online license check: always success
+function checkOnlineLicense(licenseKey, currentDeviceId)
+    return true, "ALL_DEVICES", 1, loadUserType()
+end
+
+-- Bypass auto-login: always success
+function checkAutoLogin()
+    return true, loadUserType()
+end
+
+-- Dummy load saved license: always return dummy key
+function loadSavedLicense()
+    return "dummy-license-key"
+end
+
+-- Dummy save license and device function
+function saveLicenseAndDevice(key, deviceId, userType)
+    return true
+end
+
+-- Dummy clear saved license function
+function clearSavedLicense()
+    return true
+end
+
+-- Always enable feature
+function getFeatureStatus(featureName)
+    return true
+end
+
+-- Suppress license prompts
+function showLicensePrompt(...)
+    -- do nothing
+end
+
 
 local function getServers()
     -- Development mode: no remote servers needed.
