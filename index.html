@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Game Script Host — DS4FV2_modified.lua</title>
+<style>
+  :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;line-height:1.4}
+  body{max-width:980px;margin:28px auto;padding:18px;color:#111}
+  h1{font-size:1.5rem;margin:.2rem 0}
+  p{margin:.4rem 0 1rem}
+  .panel{border:1px solid #ddd;padding:12px;border-radius:8px;margin-bottom:14px;background:#fafafa}
+  label{display:block;font-weight:600;margin-bottom:6px}
+  input[type="text"]{width:100%;padding:8px;border:1px solid #ccc;border-radius:6px}
+  button{padding:8px 12px;border-radius:8px;border:0;background:#0b79d0;color:#fff;cursor:pointer}
+  button.secondary{background:#444}
+  pre{white-space:pre-wrap;word-wrap:break-word;max-height:360px;overflow:auto;background:#fff;padding:12px;border-radius:6px;border:1px solid #eee}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  .muted{color:#666;font-size:.95rem}
+  footer{margin-top:18px;color:#666;font-size:.9rem}
+  .grid{display:grid;grid-template-columns:1fr 320px;gap:12px}
+  @media(max-width:880px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+  <h1>Game Script Host — <small class="muted">DS4FV2_modified.lua</small></h1>
+  <p class="muted">This page serves your developer script. Only use and execute scripts you own and trust. Do not use this to run or distribute code that violates other software's licensing.</p>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <label>Remote script URL</label>
+        <input id="url" type="text" value="https://game-script1.vercel.app/DS4FV2_modified.lua" />
+        <div style="margin-top:10px" class="row">
+          <button id="downloadBtn">Download & Preview</button>
+          <button id="computeHashBtn" class="secondary">Compute SHA-256</button>
+          <button id="saveBtn" class="secondary">Save As (.lua)</button>
+        </div>
+        <p class="muted" style="margin-top:8px">Tip: confirm content and SHA-256 before running on a device.</p>
+      </div>
+
+      <div class="panel">
+        <label>Preview / Script content</label>
+        <pre id="preview">No file loaded yet. Click "Download & Preview" or upload a local file.</pre>
+      </div>
+
+      <div class="panel">
+        <label>Upload a local script (optional)</label>
+        <input id="fileInput" type="file" accept=".lua,text/plain" />
+        <p class="muted">You can also drag & drop your script file onto the preview area in some browsers.</p>
+      </div>
+
+      <div class="panel">
+        <label>SHA-256 (integrity)</label>
+        <div class="row">
+          <input id="shaField" type="text" placeholder="Computed SHA-256 will appear here" />
+          <button id="copySha">Copy</button>
+        </div>
+        <p class="muted">Use this value to compare with a checksum you store offline. This helps ensure the script hasn't been tampered with.</p>
+      </div>
+
+      <div class="panel">
+        <label>Developer-mode instructions</label>
+        <ol>
+          <li>Set <code>DEVELOPER_MODE = true</code> only on devices you control when testing.</li>
+          <li>Download this script or place a copy in device external storage (e.g., <code>/storage/emulated/0/Script_no_license.lua</code>).</li>
+          <li>Run the loader in GameGuardian; prefer local file execution first.</li>
+          <li>After testing, set <code>DEVELOPER_MODE = false</code> to avoid remote execution.</li>
+        </ol>
+        <p class="muted">Important: executing remote code runs with the privileges of the host environment. Only execute files you authored or fully trust.</p>
+      </div>
+    </div>
+
+    <aside>
+      <div class="panel">
+        <label>Quick actions</label>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button id="openRaw">Open raw URL</button>
+          <a id="rawLink" href="#" target="_blank" style="display:none">Open raw</a>
+          <button id="downloadDirect">Direct Download</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <label>File Info</label>
+        <p class="muted">Size: <span id="size">—</span></p>
+        <p class="muted">Lines: <span id="lines">—</span></p>
+        <p class="muted">Last action: <span id="status">idle</span></p>
+      </div>
+
+      <div class="panel">
+        <label>Safety reminder</label>
+        <p class="muted">Only host and execute code you own. This page helps you inspect content and verify integrity before running scripts on devices.</p>
+      </div>
+    </aside>
+  </div>
+
+  <footer>
+    <small>Generated for Loki — keep <strong>DEVELOPER_MODE</strong> explicit and only enable when debugging on devices you control. If you want a download page with signed releases (recommended), I can help add server-side checksum files and an admin upload panel.</small>
+  </footer>
+
+<script>
+async function fetchText(url) {
+  const resp = await fetch(url, {cache: "no-store"});
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  return await resp.text();
+}
+
+function bytesToHex(bytes) {
+  return Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function sha256(text) {
+  const enc = new TextEncoder();
+  const data = enc.encode(text);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return bytesToHex(new Uint8Array(hash));
+}
+
+const urlInput = document.getElementById('url');
+const downloadBtn = document.getElementById('downloadBtn');
+const previewEl = document.getElementById('preview');
+const shaField = document.getElementById('shaField');
+const computeHashBtn = document.getElementById('computeHashBtn');
+const fileInput = document.getElementById('fileInput');
+const sizeEl = document.getElementById('size');
+const linesEl = document.getElementById('lines');
+const statusEl = document.getElementById('status');
+const saveBtn = document.getElementById('saveBtn');
+const openRaw = document.getElementById('openRaw');
+const downloadDirect = document.getElementById('downloadDirect');
+const copySha = document.getElementById('copySha');
+
+downloadBtn.addEventListener('click', async () => {
+  const url = urlInput.value.trim();
+  if (!url) return alert('Please enter the remote URL first.');
+  statusEl.textContent = 'downloading...';
+  try {
+    const text = await fetchText(url);
+    previewEl.textContent = text;
+    shaField.value = await sha256(text);
+    sizeEl.textContent = (new Blob([text]).size) + ' bytes';
+    linesEl.textContent = text.split(/\r\n|\r|\n/).length;
+    statusEl.textContent = 'downloaded';
+  } catch (err) {
+    previewEl.textContent = 'ERROR: ' + err.message;
+    statusEl.textContent = 'error';
+  }
+});
+
+computeHashBtn.addEventListener('click', async () => {
+  const txt = previewEl.textContent || '';
+  if (!txt) return alert('No script loaded to hash.');
+  statusEl.textContent = 'computing hash...';
+  shaField.value = await sha256(txt);
+  statusEl.textContent = 'hash computed';
+});
+
+fileInput.addEventListener('change', async (ev) => {
+  const file = ev.target.files[0];
+  if (!file) return;
+  statusEl.textContent = 'reading local file...';
+  const text = await file.text();
+  previewEl.textContent = text;
+  shaField.value = await sha256(text);
+  sizeEl.textContent = file.size + ' bytes';
+  linesEl.textContent = text.split(/\r\n|\r|\n/).length;
+  statusEl.textContent = 'local file loaded';
+});
+
+saveBtn.addEventListener('click', () => {
+  const text = previewEl.textContent || '';
+  if (!text) return alert('Nothing to save.');
+  const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'DS4FV2_modified.lua';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  statusEl.textContent = 'saved to disk (browser download)';
+});
+
+openRaw.addEventListener('click', () => {
+  const url = urlInput.value.trim();
+  if (!url) return alert('Enter URL first.');
+  window.open(url, '_blank');
+});
+
+downloadDirect.addEventListener('click', async () => {
+  const url = urlInput.value.trim();
+  if (!url) return alert('Enter URL first.');
+  statusEl.textContent = 'downloading file...';
+  try {
+    const text = await fetchText(url);
+    // auto-save
+    const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'DS4FV2_modified.lua';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    statusEl.textContent = 'downloaded & saved';
+  } catch (err) {
+    statusEl.textContent = 'error';
+    alert('Download failed: ' + err.message);
+  }
+});
+
+copySha.addEventListener('click', async () => {
+  if (!shaField.value) return alert('No hash to copy.');
+  try {
+    await navigator.clipboard.writeText(shaField.value);
+    alert('SHA-256 copied to clipboard');
+  } catch (e) {
+    prompt('Copy this SHA-256:', shaField.value);
+  }
+});
+
+// allow simple drag & drop into preview area
+previewEl.addEventListener('dragover', (e) => { e.preventDefault(); previewEl.style.outline='2px dashed #cce'; });
+previewEl.addEventListener('dragleave', (e) => { previewEl.style.outline=''; });
+pr
