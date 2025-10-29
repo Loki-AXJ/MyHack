@@ -96,7 +96,7 @@ local function loadSavedLicense()
     return nil
 end
 
-    end
+    
     return nil
 end
 
