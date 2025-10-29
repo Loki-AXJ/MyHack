@@ -1,290 +1,41 @@
-# Create a deploy-ready ZIP containing:
-# - public/index.html (updated to point to Script_no_license.lua)
-# - public/Script_no_license.lua (use the edited script saved earlier)
-# - vercel.json (CORS headers)
-# Then save ZIP to /mnt/data/vercel_deploy_package.zip and provide download link.
-
-import os, shutil, zipfile, textwrap, json
-
-# Paths
-out_dir = "/mnt/data/vercel_deploy_package"
-public_dir = os.path.join(out_dir, "public")
-os.makedirs(public_dir, exist_ok=True)
-
-# index.html content (updated to Script_no_license.lua)
-index_html = """<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Game Script Host — Script_no_license.lua</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Script_no_license.lua — Download</title>
 <style>
-  :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;line-height:1.4}
-  body{max-width:980px;margin:28px auto;padding:18px;color:#111}
-  h1{font-size:1.5rem;margin:.2rem 0}
-  .panel{border:1px solid #ddd;padding:12px;border-radius:8px;margin-bottom:14px;background:#fafafa}
-  label{display:block;font-weight:600;margin-bottom:6px}
-  input[type="text"]{width:100%;padding:8px;border:1px solid #ccc;border-radius:6px}
-  button{padding:8px 12px;border-radius:8px;border:0;background:#0b79d0;color:#fff;cursor:pointer}
-  button.secondary{background:#444}
-  pre{white-space:pre-wrap;word-wrap:break-word;max-height:360px;overflow:auto;background:#fff;padding:12px;border-radius:6px;border:1px solid #eee}
-  .row{display:flex;gap:8px;flex-wrap:wrap}
-  .muted{color:#666;font-size:.95rem}
-  footer{margin-top:18px;color:#666;font-size:.9rem}
-  .grid{display:grid;grid-template-columns:1fr 320px;gap:12px}
-  @media(max-width:880px){.grid{grid-template-columns:1fr}}
+  body {
+    font-family: Arial, sans-serif;
+    margin: 40px;
+    background: #1e1e1e;
+    color: #eee;
+    text-align: center;
+  }
+  a.download {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 15px 25px;
+    background: #28a745;
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+    border-radius: 8px;
+    font-size: 18px;
+  }
+  a.download:hover { background: #218838; }
+  .muted { color: #bbb; font-size: 0.95rem; margin-top: 8px; }
 </style>
 </head>
 <body>
-  <h1>Game Script Host — <small class="muted">Script_no_license.lua</small></h1>
-  <p class="muted">Use and execute scripts you own and trust. Verify integrity before running on devices.</p>
+  <h1>Script_no_license.lua</h1>
+  <p class="muted">Place <strong>Script_no_license.lua</strong> in the same folder as this page.</p>
+  <p>Click below to download the script file:</p>
 
-  <div class="grid">
-    <div>
-      <div class="panel">
-        <label>Remote script URL</label>
-        <input id="url" type="text" value="https://{YOUR_APP}.vercel.app/Script_no_license.lua" />
-        <div style="margin-top:10px" class="row">
-          <button id="downloadBtn">Download & Preview</button>
-          <button id="computeHashBtn" class="secondary">Compute SHA-256</button>
-          <button id="saveBtn" class="secondary">Save As (.lua)</button>
-        </div>
-        <p class="muted" style="margin-top:8px">Tip: confirm content and SHA-256 before running on a device.</p>
-      </div>
+  <!-- Relative URL: will download the file placed at /public/Script_no_license.lua -->
+  <a href="./Script_no_license.lua" class="download" download>Download Script_no_license.lua</a>
 
-      <div class="panel">
-        <label>Preview / Script content</label>
-        <pre id="preview">No file loaded yet. Click "Download & Preview" or upload a local file.</pre>
-      </div>
-
-      <div class="panel">
-        <label>Upload a local script (optional)</label>
-        <input id="fileInput" type="file" accept=".lua,text/plain" />
-        <p class="muted">You can also drag & drop your script file onto the preview area in some browsers.</p>
-      </div>
-
-      <div class="panel">
-        <label>SHA-256 (integrity)</label>
-        <div class="row">
-          <input id="shaField" type="text" placeholder="Computed SHA-256 will appear here" />
-          <button id="copySha">Copy</button>
-        </div>
-        <p class="muted">Use this to verify integrity before executing on a device.</p>
-      </div>
-
-      <div class="panel">
-        <label>Developer-mode instructions</label>
-        <ol>
-          <li>Set <code>DEVELOPER_MODE = true</code> on your loader only while testing on devices you control.</li>
-          <li>Place this script in external storage or use the remote download; verify SHA-256 before running.</li>
-          <li>After testing set <code>DEVELOPER_MODE = false</code>.</li>
-        </ol>
-      </div>
-    </div>
-
-    <aside>
-      <div class="panel">
-        <label>Quick actions</label>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          <button id="openRaw">Open raw URL</button>
-          <button id="downloadDirect">Direct Download</button>
-        </div>
-      </div>
-
-      <div class="panel">
-        <label>File Info</label>
-        <p class="muted">Size: <span id="size">—</span></p>
-        <p class="muted">Lines: <span id="lines">—</span></p>
-        <p class="muted">Last action: <span id="status">idle</span></p>
-      </div>
-
-      <div class="panel">
-        <label>Safety reminder</label>
-        <p class="muted">Only host and execute code you own. This page helps you inspect content and verify integrity before use.</p>
-      </div>
-    </aside>
-  </div>
-
-  <footer>
-    <small>Generated for Loki — enable remote execution only while debugging on devices you control.</small>
-  </footer>
-
-<script>
-async function fetchText(url) {
-  const resp = await fetch(url, {cache: "no-store"});
-  if (!resp.ok) throw new Error('HTTP ' + resp.status);
-  return await resp.text();
-}
-
-function bytesToHex(bytes) {
-  return Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
-}
-
-async function sha256(text) {
-  const enc = new TextEncoder();
-  const data = enc.encode(text);
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  return bytesToHex(new Uint8Array(hash));
-}
-
-const urlInput = document.getElementById('url');
-const downloadBtn = document.getElementById('downloadBtn');
-const previewEl = document.getElementById('preview');
-const shaField = document.getElementById('shaField');
-const computeHashBtn = document.getElementById('computeHashBtn');
-const fileInput = document.getElementById('fileInput');
-const sizeEl = document.getElementById('size');
-const linesEl = document.getElementById('lines');
-const statusEl = document.getElementById('status');
-const saveBtn = document.getElementById('saveBtn');
-const openRaw = document.getElementById('openRaw');
-const downloadDirect = document.getElementById('downloadDirect');
-const copySha = document.getElementById('copySha');
-
-downloadBtn.addEventListener('click', async () => {
-  const url = urlInput.value.trim();
-  if (!url) return alert('Please enter the remote URL first.');
-  statusEl.textContent = 'downloading...';
-  try {
-    const text = await fetchText(url);
-    previewEl.textContent = text;
-    shaField.value = await sha256(text);
-    sizeEl.textContent = (new Blob([text]).size) + ' bytes';
-    linesEl.textContent = text.split(/\\r\\n|\\r|\\n/).length;
-    statusEl.textContent = 'downloaded';
-  } catch (err) {
-    previewEl.textContent = 'ERROR: ' + err.message;
-    statusEl.textContent = 'error';
-  }
-});
-
-computeHashBtn.addEventListener('click', async () => {
-  const txt = previewEl.textContent || '';
-  if (!txt) return alert('No script loaded to hash.');
-  statusEl.textContent = 'computing hash...';
-  shaField.value = await sha256(txt);
-  statusEl.textContent = 'hash computed';
-});
-
-fileInput.addEventListener('change', async (ev) => {
-  const file = ev.target.files[0];
-  if (!file) return;
-  statusEl.textContent = 'reading local file...';
-  const text = await file.text();
-  previewEl.textContent = text;
-  shaField.value = await sha256(text);
-  sizeEl.textContent = file.size + ' bytes';
-  linesEl.textContent = text.split(/\\r\\n|\\r|\\n/).length;
-  statusEl.textContent = 'local file loaded';
-});
-
-saveBtn.addEventListener('click', () => {
-  const text = previewEl.textContent || '';
-  if (!text) return alert('Nothing to save.');
-  const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'Script_no_license.lua';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  statusEl.textContent = 'saved to disk (browser download)';
-});
-
-openRaw.addEventListener('click', () => {
-  const url = urlInput.value.trim();
-  if (!url) return alert('Enter URL first.');
-  window.open(url, '_blank');
-});
-
-downloadDirect.addEventListener('click', async () => {
-  const url = urlInput.value.trim();
-  if (!url) return alert('Enter URL first.');
-  statusEl.textContent = 'downloading file...';
-  try {
-    const text = await fetchText(url);
-    const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'Script_no_license.lua';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    statusEl.textContent = 'downloaded & saved';
-  } catch (err) {
-    statusEl.textContent = 'error';
-    alert('Download failed: ' + err.message);
-  }
-});
-
-copySha.addEventListener('click', async () => {
-  if (!shaField.value) return alert('No hash to copy.');
-  try {
-    await navigator.clipboard.writeText(shaField.value);
-    alert('SHA-256 copied to clipboard');
-  } catch (e) {
-    prompt('Copy this SHA-256:', shaField.value);
-  }
-});
-
-previewEl.addEventListener('dragover', (e) => { e.preventDefault(); previewEl.style.outline='2px dashed #cce'; });
-previewEl.addEventListener('dragleave', (e) => { previewEl.style.outline=''; });
-previewEl.addEventListener('drop', async (e) => {
-  e.preventDefault();
-  previewEl.style.outline='';
-  const f = e.dataTransfer.files && e.dataTransfer.files[0];
-  if (!f) return;
-  const txt = await f.text();
-  previewEl.textContent = txt;
-  shaField.value = await sha256(txt);
-  sizeEl.textContent = f.size + ' bytes';
-  linesEl.textContent = txt.split(/\\r\\n|\\r|\\n/).length;
-  statusEl.textContent = 'local file dropped';
-});
-</script>
+  <p class="muted">If the download doesn't start, make sure the file exists at<br>
+  <code>https://&lt;your-vercel-app&gt;.vercel.app/Script_no_license.lua</code></p>
 </body>
 </html>
-"""
-
-# vercel.json content
-vercel_json = {
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {"key": "Access-Control-Allow-Origin", "value": "*"},
-        {"key": "Access-Control-Allow-Methods", "value": "GET, OPTIONS"},
-        {"key": "Access-Control-Allow-Headers", "value": "Content-Type"}
-      ]
-    }
-  ]
-}
-
-# Load the existing Script_no_license.lua from /mnt/data if exists, else create a small placeholder
-src_path = "/mnt/data/Script_no_license.lua"
-if os.path.exists(src_path):
-    with open(src_path, "r", encoding="utf-8") as f:
-        lua_content = f.read()
-else:
-    lua_content = "-- Placeholder Script_no_license.lua\n-- Replace with your actual Lua script.\nprint('Hello from Script_no_license.lua')\n"
-
-# Write files
-with open(os.path.join(public_dir, "index.html"), "w", encoding="utf-8") as f:
-    f.write(index_html.replace("{YOUR_APP}", "my-hack-beryl.vercel.app"))
-
-with open(os.path.join(public_dir, "Script_no_license.lua"), "w", encoding="utf-8") as f:
-    f.write(lua_content)
-
-with open(os.path.join(out_dir, "vercel.json"), "w", encoding="utf-8") as f:
-    json.dump(vercel_json, f, indent=2)
-
-# Create ZIP
-zip_path = "/mnt/data/vercel_deploy_package.zip"
-with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
-    for root, dirs, files in os.walk(out_dir):
-        for file in files:
-            full = os.path.join(root, file)
-            arcname = os.path.relpath(full, out_dir)
-            z.write(full, arcname)
-
-print("Created deploy package at:", zip_path)
