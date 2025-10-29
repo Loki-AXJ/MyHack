@@ -1,14 +1,27 @@
-<!doctype html>
+# Create a deploy-ready ZIP containing:
+# - public/index.html (updated to point to Script_no_license.lua)
+# - public/Script_no_license.lua (use the edited script saved earlier)
+# - vercel.json (CORS headers)
+# Then save ZIP to /mnt/data/vercel_deploy_package.zip and provide download link.
+
+import os, shutil, zipfile, textwrap, json
+
+# Paths
+out_dir = "/mnt/data/vercel_deploy_package"
+public_dir = os.path.join(out_dir, "public")
+os.makedirs(public_dir, exist_ok=True)
+
+# index.html content (updated to Script_no_license.lua)
+index_html = """<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Game Script Host — DS4FV2_modified.lua</title>
+<title>Game Script Host — Script_no_license.lua</title>
 <style>
   :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;line-height:1.4}
   body{max-width:980px;margin:28px auto;padding:18px;color:#111}
   h1{font-size:1.5rem;margin:.2rem 0}
-  p{margin:.4rem 0 1rem}
   .panel{border:1px solid #ddd;padding:12px;border-radius:8px;margin-bottom:14px;background:#fafafa}
   label{display:block;font-weight:600;margin-bottom:6px}
   input[type="text"]{width:100%;padding:8px;border:1px solid #ccc;border-radius:6px}
@@ -23,14 +36,14 @@
 </style>
 </head>
 <body>
-  <h1>Game Script Host — <small class="muted">DS4FV2_modified.lua</small></h1>
-  <p class="muted">This page serves your developer script. Only use and execute scripts you own and trust. Do not use this to run or distribute code that violates other software's licensing.</p>
+  <h1>Game Script Host — <small class="muted">Script_no_license.lua</small></h1>
+  <p class="muted">Use and execute scripts you own and trust. Verify integrity before running on devices.</p>
 
   <div class="grid">
     <div>
       <div class="panel">
         <label>Remote script URL</label>
-        <input id="url" type="text" value="https://game-script1.vercel.app/DS4FV2_modified.lua" />
+        <input id="url" type="text" value="https://{YOUR_APP}.vercel.app/Script_no_license.lua" />
         <div style="margin-top:10px" class="row">
           <button id="downloadBtn">Download & Preview</button>
           <button id="computeHashBtn" class="secondary">Compute SHA-256</button>
@@ -56,18 +69,16 @@
           <input id="shaField" type="text" placeholder="Computed SHA-256 will appear here" />
           <button id="copySha">Copy</button>
         </div>
-        <p class="muted">Use this value to compare with a checksum you store offline. This helps ensure the script hasn't been tampered with.</p>
+        <p class="muted">Use this to verify integrity before executing on a device.</p>
       </div>
 
       <div class="panel">
         <label>Developer-mode instructions</label>
         <ol>
-          <li>Set <code>DEVELOPER_MODE = true</code> only on devices you control when testing.</li>
-          <li>Download this script or place a copy in device external storage (e.g., <code>/storage/emulated/0/Script_no_license.lua</code>).</li>
-          <li>Run the loader in GameGuardian; prefer local file execution first.</li>
-          <li>After testing, set <code>DEVELOPER_MODE = false</code> to avoid remote execution.</li>
+          <li>Set <code>DEVELOPER_MODE = true</code> on your loader only while testing on devices you control.</li>
+          <li>Place this script in external storage or use the remote download; verify SHA-256 before running.</li>
+          <li>After testing set <code>DEVELOPER_MODE = false</code>.</li>
         </ol>
-        <p class="muted">Important: executing remote code runs with the privileges of the host environment. Only execute files you authored or fully trust.</p>
       </div>
     </div>
 
@@ -76,7 +87,6 @@
         <label>Quick actions</label>
         <div style="display:flex;flex-direction:column;gap:8px">
           <button id="openRaw">Open raw URL</button>
-          <a id="rawLink" href="#" target="_blank" style="display:none">Open raw</a>
           <button id="downloadDirect">Direct Download</button>
         </div>
       </div>
@@ -90,13 +100,13 @@
 
       <div class="panel">
         <label>Safety reminder</label>
-        <p class="muted">Only host and execute code you own. This page helps you inspect content and verify integrity before running scripts on devices.</p>
+        <p class="muted">Only host and execute code you own. This page helps you inspect content and verify integrity before use.</p>
       </div>
     </aside>
   </div>
 
   <footer>
-    <small>Generated for Loki — keep <strong>DEVELOPER_MODE</strong> explicit and only enable when debugging on devices you control. If you want a download page with signed releases (recommended), I can help add server-side checksum files and an admin upload panel.</small>
+    <small>Generated for Loki — enable remote execution only while debugging on devices you control.</small>
   </footer>
 
 <script>
@@ -140,7 +150,7 @@ downloadBtn.addEventListener('click', async () => {
     previewEl.textContent = text;
     shaField.value = await sha256(text);
     sizeEl.textContent = (new Blob([text]).size) + ' bytes';
-    linesEl.textContent = text.split(/\r\n|\r|\n/).length;
+    linesEl.textContent = text.split(/\\r\\n|\\r|\\n/).length;
     statusEl.textContent = 'downloaded';
   } catch (err) {
     previewEl.textContent = 'ERROR: ' + err.message;
@@ -164,7 +174,7 @@ fileInput.addEventListener('change', async (ev) => {
   previewEl.textContent = text;
   shaField.value = await sha256(text);
   sizeEl.textContent = file.size + ' bytes';
-  linesEl.textContent = text.split(/\r\n|\r|\n/).length;
+  linesEl.textContent = text.split(/\\r\\n|\\r|\\n/).length;
   statusEl.textContent = 'local file loaded';
 });
 
@@ -174,7 +184,7 @@ saveBtn.addEventListener('click', () => {
   const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'DS4FV2_modified.lua';
+  a.download = 'Script_no_license.lua';
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -193,11 +203,10 @@ downloadDirect.addEventListener('click', async () => {
   statusEl.textContent = 'downloading file...';
   try {
     const text = await fetchText(url);
-    // auto-save
     const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'DS4FV2_modified.lua';
+    a.download = 'Script_no_license.lua';
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -218,7 +227,64 @@ copySha.addEventListener('click', async () => {
   }
 });
 
-// allow simple drag & drop into preview area
 previewEl.addEventListener('dragover', (e) => { e.preventDefault(); previewEl.style.outline='2px dashed #cce'; });
 previewEl.addEventListener('dragleave', (e) => { previewEl.style.outline=''; });
-pr
+previewEl.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  previewEl.style.outline='';
+  const f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (!f) return;
+  const txt = await f.text();
+  previewEl.textContent = txt;
+  shaField.value = await sha256(txt);
+  sizeEl.textContent = f.size + ' bytes';
+  linesEl.textContent = txt.split(/\\r\\n|\\r|\\n/).length;
+  statusEl.textContent = 'local file dropped';
+});
+</script>
+</body>
+</html>
+"""
+
+# vercel.json content
+vercel_json = {
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {"key": "Access-Control-Allow-Origin", "value": "*"},
+        {"key": "Access-Control-Allow-Methods", "value": "GET, OPTIONS"},
+        {"key": "Access-Control-Allow-Headers", "value": "Content-Type"}
+      ]
+    }
+  ]
+}
+
+# Load the existing Script_no_license.lua from /mnt/data if exists, else create a small placeholder
+src_path = "/mnt/data/Script_no_license.lua"
+if os.path.exists(src_path):
+    with open(src_path, "r", encoding="utf-8") as f:
+        lua_content = f.read()
+else:
+    lua_content = "-- Placeholder Script_no_license.lua\n-- Replace with your actual Lua script.\nprint('Hello from Script_no_license.lua')\n"
+
+# Write files
+with open(os.path.join(public_dir, "index.html"), "w", encoding="utf-8") as f:
+    f.write(index_html.replace("{YOUR_APP}", "my-hack-beryl.vercel.app"))
+
+with open(os.path.join(public_dir, "Script_no_license.lua"), "w", encoding="utf-8") as f:
+    f.write(lua_content)
+
+with open(os.path.join(out_dir, "vercel.json"), "w", encoding="utf-8") as f:
+    json.dump(vercel_json, f, indent=2)
+
+# Create ZIP
+zip_path = "/mnt/data/vercel_deploy_package.zip"
+with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
+    for root, dirs, files in os.walk(out_dir):
+        for file in files:
+            full = os.path.join(root, file)
+            arcname = os.path.relpath(full, out_dir)
+            z.write(full, arcname)
+
+print("Created deploy package at:", zip_path)
