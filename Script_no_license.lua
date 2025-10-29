@@ -98,7 +98,7 @@ end
 
     
     return nil
-end
+
 
 local function loadUserType()
     return string.char(112,114,101,109,105,117,109) -- "premium"
